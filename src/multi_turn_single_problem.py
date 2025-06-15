@@ -1,9 +1,13 @@
 import os
 import time
+import multiprocessing as mp
 
 import pydra
 from pydra import Config, REQUIRED
 from typing import Dict, Optional
+from tqdm import tqdm
+import traceback
+import queue
 
 from datasets import load_dataset
 
@@ -27,56 +31,7 @@ from src.utils import (
 
 from utils import check_result_exists, timeout
 
-REPO_TOP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-class MultiTurnConfig(Config):
-    def __init__(self):
-
-        self.dataset_src = REQUIRED
-        self.dataset_name = "ScalingIntelligence/KernelBench"
-
-        self.level = REQUIRED
-        self.problem_id = REQUIRED
-
-        # LLM configs
-        self.server_type = "sglang"
-        self.server_address = "10.0.16.46"
-        self.server_port = 8001
-        self.model_name = "Qwen/Qwen2.5-Coder-32B-Instruct"
-
-        # decoding parameter
-        self.greedy_sample = False
-        self.temperature = 0.0
-        self.top_p = 1.0  # set to consider all tokens
-        self.top_k = 50  # set large for default
-        self.num_completions = 1
-        self.max_tokens = 4096
-
-        # Eval Speciifc
-        self.num_correct_trials = 5
-        self.num_perf_trials = 100
-        self.timeout = 600 # time out per round, set to 10 min 
-        self.gpu_arch = ["Ampere"] 
-
-        self.log_dir_prefix = os.path.join(REPO_TOP_DIR, "results/kernel_multi_turn")
-        self.build_dir_prefix = os.path.join(REPO_TOP_DIR, "results/kernel_eval_build")
-
-        self.run_group = "dummy_run_group"
-        self.run_name = "dummy_run_name"
-
-        self.verbose = True
-        self.show_state = True
-        self.measure_performance = True
-        self.mock = False
-        self.debug = False
-
-        # multi-turn numbers
-        self.max_k = 10
-        self.context_strategy = ["reflection"]
-        self.state_machine_strategy = "rerun" # default
-        self.max_feedback_length = 100000 # in terms of characters, 10k, so much less in tokens
-        # TODO: this is not implemented in the state machine yet
-        self.use_last_only = False 
+from multi_turn_config import MultiTurnConfig
 
 def start_single_caesar(
     work: WorkArgs,
@@ -109,6 +64,8 @@ def start_single_caesar(
 def main(
     config: MultiTurnConfig
 ):
+    config.qwen2_5_coder_32b_instruct()
+
     if config.dataset_src == "huggingface":
         dataset = load_dataset(config.dataset_name)
         curr_level_dataset = dataset[f"level_{config.level}"]
@@ -126,6 +83,7 @@ def main(
 
     returncode = start_single_caesar(work=work, config=config, logger=logger, process_id=0, orchestrator=orchestrator)
 
+    return returncode
+
 if __name__ == "__main__":
-    # main_orchestrator()
     main()
