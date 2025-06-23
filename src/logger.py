@@ -78,7 +78,7 @@ class CaesarLogger:
         """
         if self.turn in self.current_log:
             self.current_log[self.turn][key] = content
-        # self._save_log()
+        self._save_log()
 
     def log_turn(self, 
                 turn: int,

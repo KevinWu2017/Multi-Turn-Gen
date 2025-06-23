@@ -32,11 +32,11 @@ from src.prompt_constructor import prompt_generate_custom_cuda_from_prompt_templ
 from src import eval as kernel_eval
 from src.utils import (
     extract_last_code,
-    query_server,
     extract_first_code,
     extract_code_blocks,
     read_file,
 )
+from src.inference_helper import create_inference_client, do_inference
 
 
 def show_current_state(round: int, state: CaesarState, show_state: bool):
@@ -111,6 +111,7 @@ class CaesarStateMachine:
         self.orchestrator = orchestrator
 
         self.show_state = config.show_state
+        self.inference_client = None  # This will be set in pre_run
 
         # Set up KernelBench as context, problem prompts etc.
         self.pre_run()
@@ -191,6 +192,14 @@ class CaesarStateMachine:
             self.run_name,
             "problem_" + str(self.problem_id),
             "sample_" + str(self.sample_id),
+        )
+
+        self.inference_client = create_inference_client(
+            server_type= self.config.server_type,
+            server_address=self.config.server_address,
+            server_port=self.config.server_port,
+            model_name=self.config.model_name,
+            is_reasoning_model=self.config.is_reasoning_model,
         )
         
 
@@ -318,20 +327,21 @@ class CaesarStateMachine:
             self.kernel_code[self.current_k] = "print('EXAMPLE KERNEL')"
 
         else:  # actual querying API
-            model_response = query_server(
-                self.curr_context,
-                temperature=(
-                    0.0 if self.config.greedy_sample else self.config.temperature
-                ),
+            # model_response = self.inference_server(self.curr_context)
+            print("Current Context[len=", len(self.curr_context), "]: ", self.curr_context)
+            self.logger.log_on_turn("context", self.curr_context)
+            model_response = do_inference(
+                client=self.inference_client,
+                prompt=self.curr_context,
+                model_name=self.config.model_name,
+                temperature=self.config.temperature,
                 top_p=self.config.top_p,
                 top_k=self.config.top_k,
                 max_tokens=self.config.max_tokens,
-                num_completions=self.config.num_completions,
-                server_port=self.config.server_port,
-                server_address=self.config.server_address,
-                server_type=self.config.server_type,
-                model_name=self.config.model_name,
+                is_reasoning_model=self.config.is_reasoning_model,
+                stream=True
             )
+            self.logger.log_on_turn("model_response", model_response)
             self.model_response[self.current_k] = model_response
             kernel_code = extract_last_code(
                 model_response, ["python", "cpp"]
@@ -343,7 +353,6 @@ class CaesarStateMachine:
             self.kernel_code[self.current_k] = kernel_code
 
             # For handling timeouts, now save
-            self.logger.log_on_turn("model_response", model_response)
             self.logger.log_on_turn("kernel_code", self.kernel_code[self.current_k])
 
         # Update global state info

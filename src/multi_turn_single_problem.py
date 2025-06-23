@@ -5,31 +5,17 @@ import multiprocessing as mp
 import pydra
 from pydra import Config, REQUIRED
 from typing import Dict, Optional
-from tqdm import tqdm
-import traceback
-import queue
 
 from datasets import load_dataset
 
 from logger import CaesarLogger
-from states import CaesarState, StateOutcome, Transition, WorkArgs
+from states import WorkArgs
 from state_machine import CaesarStateMachine
 from orchestrator import GPUOrchestrator
 
 from transitions_def import MyTransition, Reflection, Reflection_NVCC
 
 from src.dataset import construct_kernelbench_dataset
-from src.eval import eval_kernel_against_ref
-from src.prompt_constructor import prompt_generate_custom_cuda_from_prompt_template
-from src.utils import (
-    extract_first_code, 
-    query_server, 
-    set_gpu_arch, 
-    read_file, 
-    create_inference_server_from_presets
-)
-
-from utils import check_result_exists, timeout
 
 from multi_turn_config import MultiTurnConfig
 
@@ -64,7 +50,7 @@ def start_single_caesar(
 def main(
     config: MultiTurnConfig
 ):
-    config.qwen2_5_coder_32b_instruct()
+    config.set_preset_config(config.model_name if config.model_name is not None else "deepseek")
 
     if config.dataset_src == "huggingface":
         dataset = load_dataset(config.dataset_name)
