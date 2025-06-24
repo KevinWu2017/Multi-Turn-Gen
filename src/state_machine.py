@@ -77,6 +77,7 @@ class CaesarStateMachine:
         self.curr_context: str = ""
 
         self.context: dict[int, str] = {}
+        self.model_reasoning_response: dict[int, str] = {}
         self.model_response: dict[int, str] = {}
         self.kernel_code: dict[int, str] = {}
         self.eval_result: dict[int, str] = {}
@@ -328,9 +329,8 @@ class CaesarStateMachine:
 
         else:  # actual querying API
             # model_response = self.inference_server(self.curr_context)
-            print("Current Context[len=", len(self.curr_context), "]: ", self.curr_context)
             self.logger.log_on_turn("context", self.curr_context)
-            model_response = do_inference(
+            model_reasoning_response, model_response = do_inference(
                 client=self.inference_client,
                 prompt=self.curr_context,
                 model_name=self.config.model_name,
@@ -341,8 +341,12 @@ class CaesarStateMachine:
                 is_reasoning_model=self.config.is_reasoning_model,
                 stream=True
             )
-            self.logger.log_on_turn("model_response", model_response)
+            model_reasoning_response = "" if model_reasoning_response is None else model_reasoning_response
+            self.model_reasoning_response[self.current_k] = model_reasoning_response
             self.model_response[self.current_k] = model_response
+            self.logger.log_on_turn("model_reasoning_response", model_reasoning_response)
+            self.logger.log_on_turn("model_response", model_response)
+
             kernel_code = extract_last_code(
                 model_response, ["python", "cpp"]
             )
