@@ -4,12 +4,13 @@ from pydra import Config, REQUIRED
 
 REPO_TOP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# TODO: shoule we minus the max_tokens by the system prompt length?
 # a list of presets for API server configs
 SERVER_PRESETS = {
     "deepseek": {
         "temperature": 0.0,
         "model_name": "deepseek-reasoner",
-        "max_tokens": 4096,
+        "max_tokens": 64*1024,  # 64k tokens
         "server_type": "deepseek",
         "is_reasoning_model": True,
     },
