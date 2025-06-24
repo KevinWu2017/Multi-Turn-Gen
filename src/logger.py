@@ -78,11 +78,15 @@ class CaesarLogger:
         """
         if self.turn in self.current_log:
             self.current_log[self.turn][key] = content
+        # self._save_log()
+
+    def flush_log_now(self):
         self._save_log()
 
     def log_turn(self, 
                 turn: int,
                 context: Optional[str] = None,
+                model_reasoning_response: Optional[str] = None,
                 model_response: Optional[str] = None,
                 kernel_code: Optional[str] = None,
                 feedback: Optional[str] = None,

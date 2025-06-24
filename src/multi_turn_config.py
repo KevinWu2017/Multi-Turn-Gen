@@ -69,6 +69,8 @@ class MultiTurnConfig(Config):
         self.run_group = "dummy_run_group"
         self.run_name = "dummy_run_name"
 
+        self.print_inference_output = True
+        self.stream_inference = True
         self.verbose = True
         self.show_state = True
         self.measure_performance = True

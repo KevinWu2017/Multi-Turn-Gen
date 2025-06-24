@@ -43,7 +43,6 @@ def show_current_state(round: int, state: CaesarState, show_state: bool):
     if show_state:
         print(f"[StateMachine] I am in round {round} state: {state}")
 
-
 class CaesarStateMachine:
     def __init__(
         self,
@@ -96,7 +95,7 @@ class CaesarStateMachine:
 
         # this is problem / sample specific
         self.log_dir = os.path.join(config.log_dir_prefix, config.run_group, config.run_name, "problem_" + str(work.problem_id), "sample_" + str(work.sample_id))
-        self.logger = logger # CaesarLogger(self.log_dir, config, work, verbose=config.verbose, log_name=f"log.json")
+        self.logger = logger
 
         # Check if run is already finished
         if os.path.exists(os.path.join(self.log_dir, "DONE")):
@@ -116,6 +115,16 @@ class CaesarStateMachine:
 
         # Set up KernelBench as context, problem prompts etc.
         self.pre_run()
+
+    ###########################
+    # assertion helper function
+    def do_assertion(self, condition: bool, message: str):
+        """
+        Assert a condition and raise an error with a message if the condition is not met.
+        """
+        if not condition:
+            self.logger.flush_lot_now()
+            raise AssertionError(message)
 
     def load_from_previous_run(self):
         """
@@ -141,6 +150,7 @@ class CaesarStateMachine:
             turn_data = saved_log[turn_str]
             
             self.context[turn] = turn_data.get("context", "")
+            self.model_reasoning_response[turn] = turn_data.get("model_reasoning_response", "")
             self.model_response[turn] = turn_data.get("model_response", "")
             self.kernel_code[turn] = turn_data.get("kernel_code", "")
             self.feedback[turn] = turn_data.get("feedback", "")
@@ -148,7 +158,7 @@ class CaesarStateMachine:
             self.profiler_result[turn] = turn_data.get("profiler_result", "")
 
             # If these are empty, this run was corrupted somehow.
-            if self.context[turn] == "" or self.model_response[turn] == "" or (self.kernel_code[turn] == "" and self.feedback_code[turn] == ""):
+            if self.context[turn] == "" or self.model_response[turn] == "" or (self.kernel_code[turn] == "" and self.feedback[turn] == ""):
                 self.current_k = turn - 1
                 break
             
@@ -158,6 +168,7 @@ class CaesarStateMachine:
             self.logger.log_turn(
                 turn=turn,
                 context=self.context[turn],
+                model_reasoning_response=self.model_reasoning_response[turn],
                 model_response=self.model_response[turn],
                 kernel_code=self.kernel_code[turn],
                 feedback=self.feedback[turn],
@@ -180,8 +191,6 @@ class CaesarStateMachine:
             os.makedirs(self.config.log_dir_prefix, exist_ok=True)
 
         # assume each problem is a path
-        # problem_path_prefix = "../"  # to KernelBench directory
-        # problem_path = os.path.join(problem_path_prefix, self.problem)
         self.ref_arch_src = read_file(self.problem)
 
         # self.initial_prompt = prompt_generate_initial_from_template(self.ref_arch_src)
@@ -260,12 +269,6 @@ class CaesarStateMachine:
         outcome_to_state: dict[StateOutcome, CaesarState] = self.transition_cfg
         return outcome_to_state[self.outcome]
 
-        # state , possible outcomes
-        # (state, particular outcome) [logic] -> next state
-
-        # What are the transitions from outcome to next state
-        # 1:1 mapping
-
     # Logic for each state
     def start_logic(self):
         """
@@ -284,12 +287,6 @@ class CaesarStateMachine:
                 self.eval_result.get(self.current_k, ""),
                 self.profiler_result.get(self.current_k, ""),
             )
-
-            # copy the context from the previous round
-            # self.context[self.current_k] = copy.deepcopy(self.context[self.current_k - 1])
-
-            # problem , g1, g2, gi-1
-            # Update current context even more.
 
         # Increase the round number
         self.current_k += 1
@@ -339,7 +336,8 @@ class CaesarStateMachine:
                 top_k=self.config.top_k,
                 max_tokens=self.config.max_tokens,
                 is_reasoning_model=self.config.is_reasoning_model,
-                stream=True
+                stream=self.config.stream_inference,
+                print_inference_output=self.config.print_inference_output
             )
             model_reasoning_response = "" if model_reasoning_response is None else model_reasoning_response
             self.model_reasoning_response[self.current_k] = model_reasoning_response
@@ -351,13 +349,13 @@ class CaesarStateMachine:
                 model_response, ["python", "cpp"]
             )
 
-            assert kernel_code is not None and len(kernel_code) > 0, "[Eroror] Kernel code is Empty, model generation FAILED"
-            # NOTE: should we discard this then?
+            self.do_assertion(
+                kernel_code is not None and len(kernel_code) > 0,
+                "[Error] Kernel code is Empty, model generation FAILED"
+            )
 
             self.kernel_code[self.current_k] = kernel_code
-
-            # For handling timeouts, now save
-            self.logger.log_on_turn("kernel_code", self.kernel_code[self.current_k])
+            self.logger.log_on_turn("kernel_code", kernel_code)
 
         # Update global state info
         self.outcome = StateOutcome.Generate
