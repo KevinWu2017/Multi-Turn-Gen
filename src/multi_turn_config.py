@@ -20,11 +20,17 @@ SERVER_PRESETS = {
         "temperature": 0.7,
         "max_tokens": 4096,
     },
-    "sglang": {  # this is for running locally, mostly for Llama
-        "temperature": 0.8,  # human eval pass@N temperature
-        "server_port": 8001,
+    "local-deploy": { # for local deployment, like vllm
+        "server_type": "local-deploy",
         "server_address": "10.0.16.46",
-        "max_tokens": 16384,
+        "server_port": 8001,
+        "model_name": "Qwen/Qwen3-32B",
+        "is_reasoning_model": True,
+        "max_tokens": 32768,
+        "temperature": 0.0,
+        "top_p": 0.95,  # nucleus sampling
+        "top_k": 20,  # top-k sampling
+        "max_k": 50,  # max number of turns
     },
 }
 
@@ -39,6 +45,7 @@ class MultiTurnConfig(Config):
         self.problem_id = 1
         # This is used in legacy caesar code to define the prompt id, in newer KernelBench it should be example_ind
         self.num_samples = 1
+        self.use_gpu_info = False
 
         # LLM configs
         self.server_type = None
@@ -59,6 +66,7 @@ class MultiTurnConfig(Config):
         self.num_correct_trials = 5
         self.num_perf_trials = 100
         self.timeout = 600  # time out per round, set to 10 min
+        self.gpu_name = "A100"
         self.gpu_arch = ["Ampere"]
         self.num_gpus = 1
         self.num_workers = 1

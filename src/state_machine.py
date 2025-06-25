@@ -194,7 +194,10 @@ class CaesarStateMachine:
         self.ref_arch_src = read_file(self.problem)
 
         # self.initial_prompt = prompt_generate_initial_from_template(self.ref_arch_src)
-        self.initial_prompt = prompt_generate_custom_cuda_from_prompt_template(ref_arch_src=self.ref_arch_src)
+        if self.config.use_gpu_info:
+            self.initial_prompt = prompt_generate_prompt_with_hardware_info_from_template(ref_arch_src=self.ref_arch_src, gpu_name=self.config.gpu_name)
+        else:
+            self.initial_prompt = prompt_generate_custom_cuda_from_prompt_template(ref_arch_src=self.ref_arch_src)
 
         self.build_dir = os.path.join(
             self.config.build_dir_prefix,
