@@ -26,6 +26,7 @@ from eval_legacy import (
     get_kernel_hash, 
     get_torch_profiler_info
 )
+from test_helper import get_log_for_unit_test_path
 
 from src.eval import build_compile_cache_with_capturing
 from src.prompt_constructor import prompt_generate_custom_cuda_from_prompt_template, prompt_generate_prompt_with_hardware_info_from_template
@@ -282,13 +283,14 @@ class CaesarStateMachine:
         if self.current_k > 0 and self.current_k <= self.max_k:
             # this is logging the previous round's data
             self.logger.log_turn(
-                self.current_k,
-                self.context.get(self.current_k, ""),
-                self.model_response.get(self.current_k, ""),
-                self.kernel_code.get(self.current_k, ""),
-                self.feedback.get(self.current_k, ""),
-                self.eval_result.get(self.current_k, ""),
-                self.profiler_result.get(self.current_k, ""),
+                turn=self.current_k,
+                context=self.context.get(self.current_k, ""),
+                model_reasoning_response=self.model_reasoning_response.get(self.current_k, ""),
+                model_response=self.model_response.get(self.current_k, ""),
+                kernel_code=self.kernel_code.get(self.current_k, ""),
+                feedback=self.feedback.get(self.current_k, ""),
+                eval_result=self.eval_result.get(self.current_k, ""),
+                profiler_result=self.profiler_result.get(self.current_k, ""),
             )
 
         # Increase the round number
@@ -322,7 +324,7 @@ class CaesarStateMachine:
         """
         show_current_state(self.current_k, self.state, self.config.show_state)
 
-        if self.config.mock:
+        if self.config.dry_run:
             model_response = "Some dummy response."
             self.model_response[self.current_k] = model_response
             self.kernel_code[self.current_k] = "print('EXAMPLE KERNEL')"
@@ -330,18 +332,21 @@ class CaesarStateMachine:
         else:  # actual querying API
             # model_response = self.inference_server(self.curr_context)
             self.logger.log_on_turn("context", self.curr_context)
-            model_reasoning_response, model_response = do_inference(
-                client=self.inference_client,
-                prompt=self.curr_context,
-                model_name=self.config.model_name,
-                temperature=self.config.temperature,
-                top_p=self.config.top_p,
-                top_k=self.config.top_k,
-                max_tokens=self.config.max_tokens,
-                is_reasoning_model=self.config.is_reasoning_model,
-                stream=self.config.stream_inference,
-                print_inference_output=self.config.print_inference_output
-            )
+            if self.config.simulate_error:
+                model_reasoning_response, model_response = get_log_for_unit_test_path(self.config.simulate_error_type)
+            else:
+                model_reasoning_response, model_response = do_inference(
+                    client=self.inference_client,
+                    prompt=self.curr_context,
+                    model_name=self.config.model_name,
+                    temperature=self.config.temperature,
+                    top_p=self.config.top_p,
+                    top_k=self.config.top_k,
+                    max_tokens=self.config.max_tokens,
+                    is_reasoning_model=self.config.is_reasoning_model,
+                    stream=self.config.stream_inference,
+                    print_inference_output=self.config.print_inference_output
+                )
             model_reasoning_response = "" if model_reasoning_response is None else model_reasoning_response
             self.model_reasoning_response[self.current_k] = model_reasoning_response
             self.model_response[self.current_k] = model_response
@@ -405,8 +410,8 @@ class CaesarStateMachine:
                         }
                 )
 
-        if self.config.mock:
-            compiler_feedback = f"Mock compilation happened. Returning {self.outcome}"
+        if self.config.dry_run:
+            compiler_feedback = f"Dry_run compilation happened. Returning {self.outcome}"
             self.feedback[self.current_k] = compiler_feedback
 
         if finish:
@@ -431,13 +436,13 @@ class CaesarStateMachine:
                     # Put Eval Code Here
                     device = torch.device(f"cuda:{gpu_id}")
                 
-                    if self.config.mock:
+                    if self.config.dry_run:
                         # Simulate some GPU computation
                         work_time = random.uniform(1, 5)
                         torch.randn(100).to(device)
                         time.sleep(work_time)
                         self.outcome = StateOutcome.GPUCompileSuccess_CheckSuccess
-                        self.eval_result[self.current_k] = f"Mock eval ran for {work_time}"
+                        self.eval_result[self.current_k] = f"Dry_run eval ran for {work_time}"
 
                     else:
                         start_time = time.time()
@@ -462,7 +467,9 @@ class CaesarStateMachine:
                         if result is not None:
                             if "cuda_error" in result.metadata:
                                 print(f"[Worker] CUDA Error detected, killing process {self.process_id} working on GPU {gpu_id}: Working on Problem {self.problem_id} Sample {self.sample_id}")
-                                self.outcome = StateOutcome.Finish
+                                # TODO: Here we want to keep running the multi-turn state machine, not finish it.
+                                self.outcome = StateOutcome.GPUCompileSuccess_RunFail
+                                # self.outcome = StateOutcome.Finish
                                 return
 
                             if result.compiled:
@@ -522,12 +529,12 @@ class CaesarStateMachine:
             print(f"[Single Worker] Process {self.process_id} requesting GPU 0...")
             device = torch.device(f"cuda:{self.config.dedicated_gpu_id}")
             print(f"[Single Worker] Acquired device:", device)
-            if self.config.mock:
+            if self.config.dry_run:
                 # Simulate some GPU computation
                 work_time = random.uniform(1, 5)
                 torch.randn(100).to(device)
                 time.sleep(work_time)
-                self.eval_result[self.current_k] = f"Mock eval ran for {work_time}"
+                self.eval_result[self.current_k] = f"Dry_run eval ran for {work_time}"
                 self.outcome = StateOutcome.GPUCompileSuccess_CheckSuccess
             else:
                 result = evaluate_single_sample_src(
@@ -586,7 +593,7 @@ class CaesarStateMachine:
                     # Put Eval Code Here
                     device = torch.device(f"cuda:{gpu_id}")
                 
-                    if self.config.mock:
+                    if self.config.dry_run:
                         return
                     else:
                         start_time = time.time()
@@ -621,7 +628,7 @@ class CaesarStateMachine:
             print(f"[Single Worker] Process {self.process_id} requesting GPU 0...")
             device = torch.device(f"cuda:{self.config.dedicated_gpu_id}")
             print(f"[Single Worker] Acquired device:", device)
-            if self.config.mock:
+            if self.config.dry_run:
                 return
             else:
                 result = get_torch_profiler_info(
@@ -666,13 +673,14 @@ class CaesarStateMachine:
                     self.eval_result[self.current_k] = self.eval_result[self.current_k - 1]
 
                 self.logger.log_turn(
-                    self.current_k,
-                    self.context.get(self.current_k-1, ""),
-                    self.model_response.get(self.current_k-1, ""),
+                    turn=self.current_k,
+                    context=self.context.get(self.current_k-1, ""),
+                    model_reasoning_response=self.model_reasoning_response.get(self.current_k-1, ""),
+                    model_response=self.model_response.get(self.current_k-1, ""),
                     # Compile + Correctness feedback is Recent
-                    self.kernel_code.get(self.current_k, ""),
-                    self.feedback.get(self.current_k, ""),
-                    self.eval_result.get(self.current_k, ""),
+                    kernel_code=self.kernel_code.get(self.current_k, ""),
+                    feedback=self.feedback.get(self.current_k, ""),
+                    eval_result=self.eval_result.get(self.current_k, ""),
                     last=True,
                 )
         
@@ -683,11 +691,12 @@ class CaesarStateMachine:
         elif self.current_k <= self.max_k:
             "CUDA Error or other termination case."
             self.logger.log_turn(
-                self.current_k,
-                self.context.get(self.current_k, ""),
-                self.model_response.get(self.current_k, ""),
+                turn=self.current_k,
+                context=self.context.get(self.current_k, ""),
+                model_reasoning_response=self.model_reasoning_response.get(self.current_k, ""),
+                model_response=self.model_response.get(self.current_k, ""),
                 # Compile + Correctness feedback is Recent
-                self.kernel_code.get(self.current_k, ""),
-                self.feedback.get(self.current_k, ""),
-                self.eval_result.get(self.current_k, ""),
+                kernel_code=self.kernel_code.get(self.current_k, ""),
+                feedback=self.feedback.get(self.current_k, ""),
+                eval_result=self.eval_result.get(self.current_k, ""),
             )

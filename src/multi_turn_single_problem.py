@@ -2,6 +2,11 @@ import os
 import time
 import multiprocessing as mp
 
+# 加载.env文件中的环境变量
+# NOTE: Make sure this dotenv is loaded before any other imports of KernelBench or Caesar modules 
+from dotenv import load_dotenv
+load_dotenv()
+
 import pydra
 from pydra import Config, REQUIRED
 from typing import Dict, Optional
@@ -19,9 +24,6 @@ from src.dataset import construct_kernelbench_dataset
 
 from multi_turn_config import MultiTurnConfig
 
-from dotenv import load_dotenv
-# 加载.env文件中的环境变量
-load_dotenv()
 
 def start_single_caesar(
     work: WorkArgs,

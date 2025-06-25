@@ -82,8 +82,10 @@ class MultiTurnConfig(Config):
         self.verbose = True
         self.show_state = True
         self.measure_performance = True
-        self.mock = False
+        self.dry_run = False
         self.debug = False
+        self.simulate_error = True 
+        self.simulate_error_type = 'none' # 'none', 'compile', 'correctness', 'cuda_error'
 
         # multi-turn numbers
         self.max_k = 10
@@ -92,7 +94,6 @@ class MultiTurnConfig(Config):
         self.max_feedback_length = (
             100000  # in terms of characters, 10k, so much less in tokens
         )
-        # TODO: this is not implemented in the state machine yet
         self.use_last_only = False
 
     def set_preset_config(self, preset_name):

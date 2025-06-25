@@ -52,6 +52,7 @@ class MyTransition(Transition):
             StateOutcome.CPUCompileSuccess: CaesarState.CORRECT_STATE,
             StateOutcome.CPUCompileFail: CaesarState.START_STATE,
             StateOutcome.GPUCompileFail: CaesarState.START_STATE, # IDK
+            StateOutcome.GPUCompileSuccess_RunFail: CaesarState.START_STATE,
             StateOutcome.GPUCompileSuccess_CheckFail: CaesarState.START_STATE,
             StateOutcome.GPUCompileSuccess_CheckSuccess: CaesarState.PERFORMANCE_STATE,
             StateOutcome.PerformanceSuccess: CaesarState.START_STATE,

@@ -36,6 +36,7 @@ class StateOutcome(Enum):
 
     # Outcomes for CORRECT_STATE
     GPUCompileFail = "gpu_compile_fail"
+    GPUCompileSuccess_RunFail = "gpu_compile_success_run_fail"
     GPUCompileSuccess_CheckFail = "gpu_compile_success_check_fail"
     GPUCompileSuccess_CheckSuccess = "gpu_compile_success_check_success"
     

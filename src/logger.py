@@ -109,6 +109,7 @@ class CaesarLogger:
         if turn not in self.current_log:
             self.current_log[turn] = {
                 "context": "",
+                "model_reasoning_response": "",
                 "model_response": "",
                 "kernel_code": "",
                 "feedback": "",
@@ -118,6 +119,8 @@ class CaesarLogger:
 
         if context is not None:
             self.current_log[turn]["context"] = context
+        if model_reasoning_response is not None:
+            self.current_log[turn]["model_reasoning_response"] = model_reasoning_response
         if model_response is not None:
             self.current_log[turn]["model_response"] = model_response
         if kernel_code is not None:
@@ -131,8 +134,10 @@ class CaesarLogger:
             
         if self.verbose:
             print(f"Saved turn {turn} info to {self.log_file}")
-
-            dump_file = os.path.join(self.log_dir, f"context_dump_{turn}.txt")
+            turn_dir = os.path.join(self.log_dir, f"turn_{turn}")
+            os.makedirs(turn_dir, exist_ok=True)
+            
+            dump_file = os.path.join(turn_dir, "context.txt")
             with open(dump_file, 'w') as f:
                 f.write(context)
 
