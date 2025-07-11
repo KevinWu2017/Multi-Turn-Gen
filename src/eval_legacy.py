@@ -14,6 +14,13 @@ from src import utils as kernel_utils
 from states import CaesarState, StateOutcome, WorkArgs
 from utils import timeout
 
+# Import subprocess-based evaluation functions
+from eval_subprocess import (
+    compile_single_sample_subprocess,
+    evaluate_single_sample_src_subprocess,
+    get_torch_profiler_info_subprocess
+)
+
 """
 Additional Eval Code
 """
@@ -22,10 +29,16 @@ Additional Eval Code
 def get_kernel_hash(kernel_src: str) -> str:
     return str(hash(kernel_src))
 
-def compile_single_sample(kernel_src: str, config: Config, build_dir: str, timeout_seconds: int = 480):
+def compile_single_sample(kernel_src: str, config: Config, build_dir: str, timeout_seconds: int = 480, use_subprocess: bool = False):
     """
     CPU Pre compile kernel and capture any errors
+    Args:
+        use_subprocess: If True, run compilation in a separate subprocess
     """    
+    if use_subprocess:
+        return compile_single_sample_subprocess(kernel_src, config, build_dir, timeout_seconds)
+        
+    # Original implementation
     kernel_utils.set_gpu_arch(config.gpu_arch)
 
     # Withih this build dir, build_dir/run_name/problem_id/sample_id/kernel_hash/...
@@ -50,12 +63,17 @@ def compile_single_sample(kernel_src: str, config: Config, build_dir: str, timeo
         return -1, str(e), str(e)
 
 
-def evaluate_single_sample_src(ref_arch_src: str, kernel_src: str, configs: Config, build_dir: str, device: torch.device, timeout_seconds: int = 480) -> kernel_eval.KernelExecResult:
+def evaluate_single_sample_src(ref_arch_src: str, kernel_src: str, configs: Config, build_dir: str, device: torch.device, timeout_seconds: int = 480, use_subprocess: bool = False) -> kernel_eval.KernelExecResult:
     """
     Evaluate a single sample source code against a reference architecture source code.
     Args:
         timeout_seconds: Maximum time in seconds to wait for evaluation (default 8 minutes)
+        use_subprocess: If True, run evaluation in a separate subprocess
     """
+    if use_subprocess:
+        return evaluate_single_sample_src_subprocess(ref_arch_src, kernel_src, configs, build_dir, device, timeout_seconds)
+    
+    # Original implementation
     # TODO: Figure out how to compile correctly. Recompile for now
     kernel_hash = get_kernel_hash(kernel_src)
     build_dir = os.path.join(build_dir, kernel_hash)
@@ -118,7 +136,8 @@ def get_torch_profiler_info(ref_arch_src: str,
                             device: torch.device, 
                             num_trials: int = 100,
                             table_row_limit: int = 10,
-                            seed_num: int = 42)->str:
+                            seed_num: int = 42,
+                            use_subprocess: bool = False)->str:
     """
     Get the profiler info for a particular kernel
     Given a KernelBench solution to a problem, we want to profile the kernel
@@ -130,6 +149,7 @@ def get_torch_profiler_info(ref_arch_src: str,
     num_trials: int, the number of trials to run for Torch profiling
     table_row_limit: int, the number of rows to display in the profiler table
     seed_num: int to initiliaze on device random seed
+    use_subprocess: bool, whether to run profiler in a separate subprocess
 
 
     Notes about profiling:
@@ -137,6 +157,11 @@ def get_torch_profiler_info(ref_arch_src: str,
         - We only collect CUDA activity (ProfilerActivity.CUDA), as we are only interested in the kernel
         
     """
+    if use_subprocess:
+        return get_torch_profiler_info_subprocess(ref_arch_src, kernel_src, build_dir, device, 
+                                                 num_trials, table_row_limit, seed_num)
+    
+    # Original implementation
     assert torch.cuda.is_available(), "CUDA is not available, cannot run Torch Profiler"
 
     kernel_hash = get_kernel_hash(kernel_src)

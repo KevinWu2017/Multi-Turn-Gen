@@ -334,6 +334,8 @@ class CaesarStateMachine:
             self.logger.log_on_turn("context", self.curr_context)
             if self.config.simulate_error:
                 model_reasoning_response, model_response = get_log_for_unit_test_path(self.config.simulate_error_type)
+                if self.config.simulate_error_once:
+                    self.config.simulate_error_type = "none"
             else:
                 model_reasoning_response, model_response = do_inference(
                     client=self.inference_client,
@@ -384,7 +386,8 @@ class CaesarStateMachine:
             kernel_src=self.kernel_code[self.current_k],
             config=self.config,
             build_dir=self.build_dir,
-            timeout_seconds=self.compile_state_timeout
+            timeout_seconds=self.compile_state_timeout,
+            use_subprocess=self.config.use_subprocess
         )
 
         if self.config.verbose:
@@ -453,7 +456,8 @@ class CaesarStateMachine:
                             configs=self.config,
                             build_dir=self.build_dir,
                             timeout_seconds=self.correct_state_timeout,
-                            device=device
+                            device=device,
+                            use_subprocess=self.config.use_subprocess
                         )
                         print(f"[Worker ({self.process_id}) working on problem {self.problem_id} sample {self.sample_id}] Result: ", result)
 
@@ -485,6 +489,7 @@ class CaesarStateMachine:
                                             kernel_src=self.kernel_code[self.current_k],
                                             build_dir=self.build_dir,
                                             device=device,
+                                            use_subprocess=self.config.use_subprocess
                                         )
                                         print(profile)
                                         self.profiler_result[self.current_k] = profile
@@ -542,7 +547,8 @@ class CaesarStateMachine:
                     kernel_src=self.kernel_code[self.current_k],
                     configs=self.config,
                     build_dir=self.build_dir,
-                    device=device
+                    device=device,
+                    use_subprocess=self.config.use_subprocess
                 )
                 self.eval_result[self.current_k] = result
 
@@ -555,6 +561,7 @@ class CaesarStateMachine:
                                     kernel_src=self.kernel_code[self.current_k],
                                     build_dir=self.build_dir,
                                     device=device,
+                                    use_subprocess=self.config.use_subprocess
                                 )
                                 self.profiler_result[self.current_k] = profile
                             self.outcome = StateOutcome.GPUCompileSuccess_CheckSuccess
@@ -636,6 +643,7 @@ class CaesarStateMachine:
                     kernel_src=self.kernel_code[self.current_k],
                     build_dir=self.build_dir,
                     device=device,
+                    use_subprocess=self.config.use_subprocess
                 )
                 self.profiler_result[self.current_k] = result
                 work_time = time.time() - start_time

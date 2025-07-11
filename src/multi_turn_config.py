@@ -84,8 +84,12 @@ class MultiTurnConfig(Config):
         self.measure_performance = True
         self.dry_run = False
         self.debug = False
-        self.simulate_error = True 
+        self.simulate_error = False 
         self.simulate_error_type = 'none' # 'none', 'compile', 'correctness', 'cuda_error'
+        self.simulate_error_once = True
+        
+        # Subprocess execution options
+        self.use_subprocess = False  # Whether to use subprocess for torch execution
 
         # multi-turn numbers
         self.max_k = 10
