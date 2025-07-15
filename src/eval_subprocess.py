@@ -29,10 +29,6 @@ def create_eval_script_content(ref_arch_src: str, kernel_src: str, configs: Dict
     """
     Create the content of the evaluation script that will be run in subprocess
     """
-    # Escape source code strings to handle triple quotes and other special characters
-    ref_arch_src_escaped = repr(ref_arch_src)
-    kernel_src_escaped = repr(kernel_src)
-    
     script_content = f'''
 import sys
 import os
@@ -56,10 +52,10 @@ def main():
         # Create device
         device = torch.device(f"cuda:{device_id}")
         
-        # Define source codes (using repr to handle special characters)
-        ref_arch_src = {ref_arch_src_escaped}
+        # Define source codes
+        ref_arch_src = """{ref_arch_src}"""
         
-        kernel_src = {kernel_src_escaped}
+        kernel_src = """{kernel_src}"""
         
         # Run evaluation
         eval_result = kernel_eval.eval_kernel_against_ref(
@@ -111,10 +107,6 @@ def create_profiler_script_content(ref_arch_src: str, kernel_src: str, build_dir
     """
     Create the content of the profiler script that will be run in subprocess
     """
-    # Escape source code strings to handle triple quotes and other special characters
-    ref_arch_src_escaped = repr(ref_arch_src)
-    kernel_src_escaped = repr(kernel_src)
-    
     script_content = f'''
 import sys
 import os
@@ -135,9 +127,9 @@ def main():
         
         device = torch.device(f"cuda:{device_id}")
         
-        # Define source codes (using repr to handle special characters)
-        ref_arch_src = {ref_arch_src_escaped}
-        kernel_src = {kernel_src_escaped}
+        # Define source codes
+        ref_arch_src = """{ref_arch_src}"""
+        kernel_src = """{kernel_src}"""
         
         kernel_hash = str(hash(kernel_src))
         build_dir = os.path.join("{build_dir}", kernel_hash)
@@ -213,9 +205,6 @@ def compile_single_sample_subprocess(kernel_src: str, config: Config, build_dir:
     
     # Create a temporary script for compilation
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        # Escape kernel source code to handle triple quotes and other special characters
-        kernel_src_escaped = repr(kernel_src)
-        
         script_content = f'''
 import sys
 import os
@@ -229,7 +218,7 @@ from src import eval as kernel_eval
 
 def main():
     try:
-        kernel_src = {kernel_src_escaped}
+        kernel_src = """{kernel_src}"""
         
         returncode, stdout, err = kernel_eval.build_compile_cache_with_capturing(
             custom_model_src=kernel_src,
