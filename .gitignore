@@ -5,3 +5,7 @@ scratch/
 **build/
 **dist/
 results/
+!results/log_for_unit_test/
+.env
+.vscode/
+.idea/
