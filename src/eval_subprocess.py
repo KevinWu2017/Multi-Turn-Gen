@@ -29,7 +29,7 @@ def create_eval_script_content(ref_arch_src: str, kernel_src: str, configs: Dict
     """
     Create the content of the evaluation script that will be run in subprocess
     """
-    script_content = f'''
+    script_content = f"""
 import sys
 import os
 import json
@@ -53,9 +53,9 @@ def main():
         device = torch.device(f"cuda:{device_id}")
         
         # Define source codes
-        ref_arch_src = """{ref_arch_src}"""
+        ref_arch_src = '''{ref_arch_src}'''
         
-        kernel_src = """{kernel_src}"""
+        kernel_src = '''{kernel_src}'''
         
         # Run evaluation
         eval_result = kernel_eval.eval_kernel_against_ref(
@@ -98,7 +98,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
+"""
     return script_content
 
 def create_profiler_script_content(ref_arch_src: str, kernel_src: str, build_dir: str, 
@@ -201,11 +201,15 @@ def compile_single_sample_subprocess(kernel_src: str, config: Config, build_dir:
     kernel_utils.set_gpu_arch(config.gpu_arch)
     
     kernel_hash = get_kernel_hash(kernel_src)
+    print(f"Compiling kernel with hash: {kernel_hash}")
     kernel_build_dir = os.path.join(build_dir, kernel_hash)
     
     # Create a temporary script for compilation
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        script_content = f'''
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f1:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f2:
+            f2.write(kernel_src)
+            kernel_src_path = f2.name
+            script_content = f'''
 import sys
 import os
 
@@ -218,10 +222,8 @@ from src import eval as kernel_eval
 
 def main():
     try:
-        kernel_src = """{kernel_src}"""
-        
         returncode, stdout, err = kernel_eval.build_compile_cache_with_capturing(
-            custom_model_src=kernel_src,
+            custom_model_src_path="{kernel_src_path}",
             verbose={config.verbose},
             build_dir="{kernel_build_dir}",
         )
@@ -234,8 +236,18 @@ def main():
 if __name__ == "__main__":
     main()
 '''
-        f.write(script_content)
-        script_path = f.name
+            f1.write(script_content)
+            script_path = f1.name
+            # also write this file to the build directory
+            # os.makedirs(kernel_build_dir, exist_ok=True)
+            # path1 = os.path.join(kernel_build_dir, "kernel_src.py")
+            # path2 = os.path.join(kernel_build_dir, "compile_kernel.py")
+            # # Write kernel_src to path1
+            # with open(path1, 'w', encoding='utf-8') as f:
+            #     f.write(kernel_src)
+            # # Write script_content to path2
+            # with open(path2, 'w', encoding='utf-8') as f:
+            #     f.write(script_content)
     
     try:
         # Run the script in subprocess
@@ -292,6 +304,9 @@ def evaluate_single_sample_src_subprocess(ref_arch_src: str, kernel_src: str, co
         )
         f.write(script_content)
         script_path = f.name
+        with open(os.path.join(eval_build_dir, "run.py"), 'w', encoding='utf-8') as f2:
+            f2.write(script_content)
+            print(f"writing to {f2.name}")
     
     try:
         # Run the evaluation script in subprocess
